@@ -19,8 +19,7 @@
 // Use WinMain as the entry point to create a windowless background application.
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     
-    // Tracks the last known state of the VM process to avoid redundant API calls.
-    // Initialized to FALSE, assuming no VM is running at launch.
+    // Tracks the last known state of the target processes to avoid redundant API calls.
     BOOL wasVmRunning = FALSE;
 
     // The main infinite loop to continuously monitor the system.
@@ -47,34 +46,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         BOOL isVmRunning = FALSE;
-        const char* targetProcess = "vmware-vmx.exe";
+        // Define the list of target processes to check for.
+        const char* targetProcesses[] = {
+            "vmware-vmx.exe", // VMware Workstation/Player
+            "vmwp.exe",       // Hyper-V Worker Process
+            "wsl.exe"         // Windows Subsystem for Linux
+        };
+        int numTargets = sizeof(targetProcesses) / sizeof(targetProcesses[0]);
 
-        // Iterate through the process list to find the target VM process.
+        // Iterate through the system's process list.
         do {
-            // _stricmp performs a case-insensitive comparison of the process name.
-            if (_stricmp(pe32.szExeFile, targetProcess) == 0) {
-                isVmRunning = TRUE;
-                break; // Found the process, no need to check further.
+            // For each system process, check if it matches any of our targets.
+            for (int i = 0; i < numTargets; i++) {
+                // _stricmp performs a case-insensitive comparison.
+                if (_stricmp(pe32.szExeFile, targetProcesses[i]) == 0) {
+                    isVmRunning = TRUE;
+                    break; // Found a match, no need to check other targets for this process.
+                }
+            }
+            if (isVmRunning) {
+                break; // A target was found, no need to scan the rest of the system processes.
             }
         } while (Process32Next(hSnap, &pe32));
 
         // Always close the handle to the snapshot to free system resources.
         CloseHandle(hSnap);
 
-        // Only update the system's execution state if the VM's running status has changed.
-        // This prevents making unnecessary API calls in every loop iteration.
+        // Only update the system's execution state if the running status has changed.
         if (isVmRunning != wasVmRunning) {
             if (isVmRunning) {
-                // VM has started. Tell Windows the system is in use and should not sleep.
-                // ES_SYSTEM_REQUIRED: Prevents the system from sleeping.
-                // ES_CONTINUOUS: Keeps the setting active until explicitly cleared.
+                // A target process has started. Prevent the system from sleeping.
                 SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
             } else {
-                // VM has stopped. Revert to default behavior, allowing the system to sleep.
-                // Calling with only ES_CONTINUOUS clears previously set flags.
+                // All target processes have stopped. Allow the system to sleep again.
                 SetThreadExecutionState(ES_CONTINUOUS);
             }
-            // Update the state tracker to reflect the new reality.
+            // Update the state tracker.
             wasVmRunning = isVmRunning;
         }
         
