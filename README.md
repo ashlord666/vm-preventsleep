@@ -38,13 +38,29 @@ Create a directory for the tool, for example: ```C:\Tools```.
 
 Copy the compiled ```vmpreventsleep.exe``` into that directory.
 
-Set up a Scheduled Task to run the program automatically at startup. Open Command Prompt as an Administrator and run the following command:
+Set up a Scheduled Task to run the program automatically at startup. Run this in administrative powershell_ise:
 
 ```
-schtasks /CREATE /TN "VM Prevent Sleep" /TR "C:\Tools\vmpreventsleep.exe" /SC ONSTART /RU "NT AUTHORITY\SYSTEM" /RL HIGHEST /F
+# Define the action: what program to run
+$action = New-ScheduledTaskAction -Execute 'C:\Tools\vmpreventsleep.exe'
+
+# Define the trigger: when to run the program
+$trigger = New-ScheduledTaskTrigger -AtStartup
+
+# Define the user account and privilege level for the task
+$principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -RunLevel Highest
+
+# Define the advanced settings for the task
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
+
+# Register (create) the scheduled task with all the defined properties
+# The -Force switch will overwrite the task if it already exists
+Register-ScheduledTask -TaskName "VM Prevent Sleep" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+
+Write-Host "Scheduled task 'VM Prevent Sleep' has been created successfully."
 ```
 
-That's it! The tool will now start automatically with Windows and run silently in the background.
+That's it! The tool will now start automatically with Windows and run silently in the background. You need to start it yourself once, or just reboot.
 
 ***
 
