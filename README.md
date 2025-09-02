@@ -41,37 +41,12 @@ Copy the compiled ```vmpreventsleep.exe``` into that directory.
 Set up a Scheduled Task to run the program automatically at startup. Run this in administrative powershell_ise:
 
 ```
-# Define the action: what program to run
-$action = New-ScheduledTaskAction -Execute 'C:\Tools\vmpreventsleep.exe'
-
-# Define the trigger: when to run the program
-$trigger = New-ScheduledTaskTrigger -AtStartup
-
-# Define the user account and privilege level for the task
-$principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -RunLevel Highest
-
-# Define the advanced settings for the task
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
-
-# Register (create) the scheduled task with all the defined properties
-# The -Force switch will overwrite the task if it already exists
-Register-ScheduledTask -TaskName "VM Prevent Sleep" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
-
-Write-Host "Scheduled task 'VM Prevent Sleep' has been created successfully."
+Register-ScheduledTask -TaskName "VM Prevent Sleep (User)" -Action (New-ScheduledTaskAction -Execute 'C:\Tools\vmpreventsleep.exe') -Trigger (New-ScheduledTaskTrigger -AtLogon) -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0) -Force
 ```
 
 That's it! The tool will now start automatically with Windows and run silently in the background. You need to start it yourself once, or just reboot.
 
 ***
-
-
-### Why Run as SYSTEM?
-
-The scheduled task is configured to run as `NT AUTHORITY\SYSTEM` for a critical reason: **visibility**.
-
-On a multi-user machine, a program running under a standard user account can only see processes belonging to that user. If another user logs in and starts a VMware machine, a user-level instance of this tool wouldn't see it.
-
-By running as `SYSTEM`, the tool has a complete view of **all processes from all users**, ensuring it works reliably no matter who is logged in or who started the virtual machine. This approach is more robust and efficient than running separate instances for each user.
 
 
 ## Customization
